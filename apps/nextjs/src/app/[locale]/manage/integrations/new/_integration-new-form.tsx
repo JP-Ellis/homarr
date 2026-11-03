@@ -32,6 +32,7 @@ import {
   getIntegrationDefaultUrl,
   getIntegrationName,
   getOptionalSecretKinds,
+  getViewerScopingModes,
   invariantTechnicalLabels,
   integrationDefs,
 } from "@homarr/definitions";
@@ -80,6 +81,7 @@ export const NewIntegrationForm = ({
   const tIntegration = useI18n("integration");
   const secretKinds = getAllSecretKindOptions(kind);
   const optionalSecretKinds = getOptionalSecretKinds(kind);
+  const viewerScopingModes = getViewerScopingModes(kind);
   const hasUrlSecret = secretKinds.some((kinds) => kinds.includes("url"));
   const { data: session } = useSession();
   const canCreateApps = session?.user.permissions.includes("app-create") ?? false;
@@ -243,6 +245,19 @@ export const NewIntegrationForm = ({
               kind: getIntegrationName(kind),
             })}
             {...form.getInputProps("attemptSearchEngineCreation", { type: "checkbox" })}
+          />
+        )}
+
+        {viewerScopingModes.length > 1 && (
+          <Select
+            label={tIntegration("field.viewerScoping.label")}
+            description={tIntegration("field.viewerScoping.description")}
+            allowDeselect={false}
+            data={viewerScopingModes.map((mode) => ({
+              value: mode,
+              label: tIntegration(`field.viewerScoping.mode.${mode}`),
+            }))}
+            {...form.getInputProps("viewerScoping")}
           />
         )}
 

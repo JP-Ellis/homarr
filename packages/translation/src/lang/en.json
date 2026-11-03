@@ -1473,7 +1473,31 @@
       },
       "apiKeySettings": {
         "label": "Get API key"
+      },
+      "viewerScoping": {
+        "label": "Viewer scoping",
+        "description": "Show each signed-in viewer only their own data from this service.",
+        "mode": {
+          "off": "Off (everyone sees the same data)",
+          "username": "Match by username",
+          "email": "Match by email"
+        }
       }
+    },
+    "viewerMapping": {
+      "title": "Account links",
+      "description": "Homarr matches OIDC and LDAP users to service users automatically. Pin an override to link a Homarr user to a specific service user, which also works for local accounts.",
+      "column": {
+        "user": "Homarr user",
+        "automatic": "Automatic",
+        "override": "Override"
+      },
+      "notLinked": "Not linked",
+      "automaticPlaceholder": "Automatic",
+      "overrideFor": "Override for {name}",
+      "clear": "Clear",
+      "loadError": "The service users could not be loaded. Check the connection and try again.",
+      "saveError": "The account link could not be saved"
     },
     "action": {
       "create": "New integration"

@@ -73,6 +73,24 @@ The access covers the data of every widget that supports the integration, not on
 public boards extend it to anonymous visitors. Give integrations on shared or public boards credentials that can read
 only what their viewers may see.
 
+## Viewer scoping
+
+Jellyfin and Seerr integrations can show each signed-in viewer only their own data in the media widgets. Choose a mode
+in the integration's **Viewer scoping** field:
+
+| Mode     | Matches the viewer to the service user by               |
+| -------- | ------------------------------------------------------- |
+| Off      | Nothing. Every viewer sees the same data (the default). |
+| Username | The Homarr username (Jellyfin and Seerr)                |
+| Email    | The Homarr email address (Seerr only)                   |
+
+Homarr matches viewers automatically only for users who sign in through OIDC or LDAP. Local accounts, and anyone the
+automatic match misses or gets wrong, are linked on the integration's edit page. The account links table there shows
+each Homarr user's automatic match and lets you pin an override to a specific service user or clear it.
+
+A widget panel's saved scope decides what board viewers see. Queries without a viewer scope, such as the editor
+preview, the API and MCP, return the data of everyone and require interact access to the integration.
+
 ## Connection problems
 
 If a connection test fails:

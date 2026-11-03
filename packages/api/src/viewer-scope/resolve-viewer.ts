@@ -27,7 +27,8 @@ const unlinked: ViewerResolution = { status: "unlinked" };
 
 type ViewerScopedIntegration = IntegrationInput & { kind: IntegrationKind; viewerScoping: ViewerScopingMode };
 
-const getUserListAsync = (integration: ViewerScopedIntegration): Promise<ViewerScopeUser[] | null> => {
+/** Returns null when the integration cannot list its users. Results are cached per integration. */
+export const getViewerScopeUsersAsync = (integration: ViewerScopedIntegration): Promise<ViewerScopeUser[] | null> => {
   const cached = userListCache.get(integration.id);
   if (cached && cached.expiresAt > Date.now()) return cached.value.then((list) => list);
 
@@ -77,7 +78,7 @@ export const resolveViewerAsync = async (
   });
   if (!viewer) return unlinked;
 
-  const userList = await getUserListAsync(integration);
+  const userList = await getViewerScopeUsersAsync(integration);
   const resolution = userList ? matchViewer(viewer, integration.viewerScoping, userList) : unlinked;
 
   resolutionCache.set(cacheKey, {
