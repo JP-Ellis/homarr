@@ -20,7 +20,7 @@ const hasIntegrationPermission = (
   return false;
 };
 
-const throwIfActionsForbiddenAsync = async (
+const areActionsAllowedAsync = async (
   ctx: { db: Database; session: Session | null },
   integrationWhere: SQL<unknown>,
   expectedCount: number,
@@ -46,13 +46,31 @@ const throwIfActionsForbiddenAsync = async (
     },
   });
 
-  if (
-    integrationRecords.length !== expectedCount ||
-    !integrationRecords.every((integration) => hasIntegrationPermission(integration, session, permission))
-  ) {
+  return (
+    integrationRecords.length === expectedCount &&
+    integrationRecords.every((integration) => hasIntegrationPermission(integration, session, permission))
+  );
+};
+
+const throwIfActionsForbiddenAsync = async (
+  ctx: { db: Database; session: Session | null },
+  integrationWhere: SQL<unknown>,
+  expectedCount: number,
+  permission: IntegrationPermission,
+) => {
+  if (!(await areActionsAllowedAsync(ctx, integrationWhere, expectedCount, permission))) {
     notAllowed();
   }
 };
+
+/**
+ * Whether the user holds the permission on the integration. A missing integration counts as not allowed.
+ */
+export const isIntegrationActionAllowedAsync = (
+  ctx: { db: Database; session: Session | null },
+  integrationId: string,
+  permission: IntegrationPermission,
+) => areActionsAllowedAsync(ctx, eq(integrations.id, integrationId), 1, permission);
 
 /**
  * Throws NOT_FOUND if user is not allowed to perform action on integration
