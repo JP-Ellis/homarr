@@ -13,11 +13,21 @@ export const { componentLoader, definition } = createWidgetDefinition("mediaServ
     widgetQueryInputMatches(input, {
       integrationIds: scope.integrationIds,
       showOnlyPlaying: scope.options.showOnlyPlaying,
+      scope: scope.options.scope,
+      itemId: scope.itemId,
     }),
   refetchInterval: 10,
   createOptions() {
     return optionsBuilder.from((factory) => ({
       showOnlyPlaying: factory.switch({ defaultValue: true, withDescription: true }),
+      scope: factory.select({
+        defaultValue: "everyone",
+        options: [
+          { value: "everyone", label: (t) => t("widget.mediaServer.option.scope.option.everyone") },
+          { value: "mine", label: (t) => t("widget.mediaServer.option.scope.option.mine") },
+        ],
+        withDescription: true,
+      }),
       showBitrate: factory.switch({ defaultValue: true, withDescription: true }),
       showLocation: factory.switch({ defaultValue: true, withDescription: true }),
     }));

@@ -173,10 +173,13 @@ export default function MediaServerWidget({
   width,
   isEditMode,
   displayMode,
+  itemId,
 }: WidgetComponentProps<"mediaServer">) {
   const currentStreamsQuery = clientApi.widget.mediaServer.getCurrentStreams.useQuery({
     integrationIds,
     showOnlyPlaying: options.showOnlyPlaying,
+    scope: options.scope,
+    itemId,
   });
   const currentStreamsData = getUsableWidgetQueryData(currentStreamsQuery);
   const currentStreams = useMemo(() => currentStreamsData ?? [], [currentStreamsData]);
@@ -241,6 +244,7 @@ export default function MediaServerWidget({
   }
   const totalBitrateLabel = showBitrate ? formatBitrate(totalBitrateKbps) : null;
   const hasFailedIntegrations = currentStreams.some(({ error }) => Boolean(error));
+  const isViewerUnlinked = currentStreams.length > 0 && currentStreams.every(({ viewerUnlinked }) => viewerUnlinked);
 
   return (
     <Stack className={classes.root} gap={0} h="100%" display="flex">
@@ -270,6 +274,11 @@ export default function MediaServerWidget({
         <Group px="xs" justify="flex-end">
           <IntegrationErrorIndicator results={currentStreams} />
         </Group>
+      )}
+      {isViewerUnlinked && (
+        <Text size="xs" c="dimmed" px="xs" py={4}>
+          {t("viewerUnlinked")}
+        </Text>
       )}
       <ScrollArea
         className={classes.tableViewport}

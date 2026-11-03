@@ -3931,6 +3931,14 @@
           "label": "Show only currently playing",
           "description": "This option is not supported by every media server"
         },
+        "scope": {
+          "label": "Streams to show",
+          "description": "Only the viewer applies to integrations with viewer scoping turned on",
+          "option": {
+            "everyone": "Everyone",
+            "mine": "Only the viewer"
+          }
+        },
         "showBitrate": {
           "label": "Show bitrate",
           "description": "Show the current playback bitrate next to the location"
@@ -3940,6 +3948,7 @@
           "description": "Show whether the stream is on your LAN or WAN"
         }
       },
+      "viewerUnlinked": "No linked account",
       "footer": {
         "streams": "{count, plural, one {# active stream} other {# active streams}}",
         "totalBitrate": "Total: {bitrate}"
