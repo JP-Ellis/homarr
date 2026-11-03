@@ -198,6 +198,8 @@ export const prefetchInitialWidgetData = (
             integrationIds,
             statuses,
             recentDays: Number(options.recentDays ?? 0),
+            scope: options.scope === "mine" ? "mine" : "everyone",
+            itemId: item.id,
           }),
         );
         break;

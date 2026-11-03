@@ -16,10 +16,13 @@ import {
 } from "../../middlewares/integration";
 import { PUBLIC_INTEGRATION_ERROR, settleIntegrationQueries } from "../../settle-integrations";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../../trpc";
+import { decideScopeAsync } from "../../viewer-scope/decide-scope";
+import { resolveViewerAsync } from "../../viewer-scope/resolve-viewer";
 
 interface IntegrationQueryResult<TData> {
   integration: { id: string; name: string; kind: IntegrationKindByCategory<"mediaRequest"> };
   data: TData;
+  viewerUnlinked?: boolean;
   error?: string;
 }
 
@@ -29,26 +32,56 @@ export const mediaRequestsRouter = createTRPCRouter({
       mcp: {
         enabled: true,
         description:
-          "Get latest media requests from Overseerr/Jellyseerr with their status (pending, approved, declined, failed, completed). REQUIRED: integrationIds (array of Overseerr/Jellyseerr integration IDs from integration_all). OPTIONAL: statuses (array of statuses to include, must be non-empty) and recentDays (number 0-365; 0 disables the time filter).",
+          'Get latest media requests from Overseerr/Jellyseerr with their status (pending, approved, declined, failed, completed). REQUIRED: integrationIds (array of Overseerr/Jellyseerr integration IDs from integration_all). OPTIONAL: statuses (array of statuses to include, must be non-empty), recentDays (number 0-365; 0 disables the time filter), scope ("mine" to return only the signed-in user\'s own requests, "everyone" by default; "everyone" needs interact access to integrations with viewer scoping), itemId (ID of a saved widget, whose saved scope then applies).',
       },
     })
     .concat(createManyWidgetIntegrationMiddleware("query", "mediaRequests-requestList"))
-    .input(mediaRequestListInputSchema)
+    .input(
+      mediaRequestListInputSchema.omit({ requestedBy: true }).extend({
+        scope: z.enum(["mine", "everyone"]).default("everyone"),
+        itemId: z.string().optional(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
       const results: IntegrationQueryResult<MediaRequest[]>[] = await settleIntegrationQueries(
         ctx.integrations,
         async (integration) => {
-          const { data } = await mediaRequestListRequestHandler.handler(integration, input).getDataAsync();
-          return {
-            integration: { id: integration.id, name: integration.name, kind: integration.kind },
-            data,
-            error: undefined,
-          };
+          const decision = await decideScopeAsync(ctx, {
+            integration,
+            widgetKind: "mediaRequests-requestList",
+            itemId: input.itemId,
+            requestedScope: input.scope,
+          });
+          if ("forbidden" in decision) throw new Error("Viewer scope is not allowed for this integration");
+
+          const handlerInput = { statuses: input.statuses, recentDays: input.recentDays };
+          const integrationSummary = { id: integration.id, name: integration.name, kind: integration.kind };
+
+          if (decision.scope === "mine") {
+            const resolution = await resolveViewerAsync(ctx.db, integration, ctx.session);
+            if (resolution.status !== "matched") {
+              return { integration: integrationSummary, data: [], viewerUnlinked: true, error: undefined };
+            }
+            const requestedBy = Number(resolution.externalUserId);
+            const { data } = await mediaRequestListRequestHandler
+              .handler(integration, { ...handlerInput, requestedBy })
+              .getDataAsync();
+            return {
+              integration: integrationSummary,
+              data: data.filter((request) => request.requestedBy?.id === requestedBy),
+              viewerUnlinked: false,
+              error: undefined,
+            };
+          }
+
+          const { data } = await mediaRequestListRequestHandler.handler(integration, handlerInput).getDataAsync();
+          return { integration: integrationSummary, data, viewerUnlinked: false, error: undefined };
         },
         {
           fallback: (integration) => ({
             integration: { id: integration.id, name: integration.name, kind: integration.kind },
             data: [],
+            viewerUnlinked: false,
             error: PUBLIC_INTEGRATION_ERROR,
           }),
           throwOnAllFailures: true,
@@ -74,6 +107,7 @@ export const mediaRequestsRouter = createTRPCRouter({
         });
       return {
         requests,
+        viewerUnlinked: results.length > 0 && results.every(({ viewerUnlinked }) => viewerUnlinked),
         failedIntegrations: results.flatMap(({ integration, error }) =>
           error ? [{ integrationId: integration.id, integrationName: integration.name, error }] : [],
         ),
@@ -84,17 +118,26 @@ export const mediaRequestsRouter = createTRPCRouter({
       mcp: {
         enabled: true,
         description:
-          "Get media request statistics including total counts and top requesters. REQUIRED: integrationIds (array of Overseerr/Jellyseerr integration IDs from integration_all)",
+          "Get media request statistics including total counts and top requesters. REQUIRED: integrationIds (array of Overseerr/Jellyseerr integration IDs from integration_all). OPTIONAL: itemId (ID of a saved widget; without it, integrations with viewer scoping need interact access)",
       },
     })
     .concat(createManyWidgetIntegrationMiddleware("query", "mediaRequests-requestStats"))
-    .query(async ({ ctx }) => {
+    .input(z.object({ itemId: z.string().optional() }))
+    .query(async ({ ctx, input }) => {
       const results: IntegrationQueryResult<{
         stats: MediaRequestStats["stats"] | null;
         users: MediaRequestStats["users"];
       }>[] = await settleIntegrationQueries(
         ctx.integrations,
         async (integration) => {
+          const decision = await decideScopeAsync(ctx, {
+            integration,
+            widgetKind: "mediaRequests-requestStats",
+            itemId: input.itemId,
+            requestedScope: "everyone",
+          });
+          if ("forbidden" in decision) throw new Error("Viewer scope is not allowed for this integration");
+
           const { data } = await mediaRequestStatsRequestHandler.handler(integration, {}).getDataAsync();
           return {
             integration: { id: integration.id, name: integration.name, kind: integration.kind },

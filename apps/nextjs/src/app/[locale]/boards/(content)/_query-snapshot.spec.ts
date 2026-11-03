@@ -73,4 +73,26 @@ describe("board query snapshot", () => {
     await createBoardQuerySnapshot(board, integrations).restoreAsync(restored);
     expect(hasQuery(restored, "mine")).toBe(false);
   });
+
+  test("a scope mine getLatestRequests query is neither saved nor restored", async () => {
+    const requestsKey = (scope: "mine" | "everyone") => [
+      ["widget", "mediaRequests", "getLatestRequests"],
+      {
+        input: { integrationIds: ["integration"], statuses: ["pending"], recentDays: 0, scope },
+        type: "query",
+      },
+    ];
+    const source = new QueryClient();
+    for (const scope of ["mine", "everyone"] as const) {
+      source.getQueryCache().build(source, { queryKey: requestsKey(scope), meta: { rscWidgetPrefetch: true } });
+      source.setQueryData(requestsKey(scope), { requests: [], viewerUnlinked: false, failedIntegrations: [] });
+    }
+
+    await createBoardQuerySnapshot(board, integrations).saveAsync(source);
+    const restored = new QueryClient();
+    await createBoardQuerySnapshot(board, integrations).restoreAsync(restored);
+
+    expect(restored.getQueryData(requestsKey("everyone"))).toBeDefined();
+    expect(restored.getQueryData(requestsKey("mine"))).toBeUndefined();
+  });
 });

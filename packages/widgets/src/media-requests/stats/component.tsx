@@ -40,10 +40,14 @@ export default function MediaServerWidget({
   isEditMode,
   width,
   height,
+  itemId,
 }: WidgetComponentProps<"mediaRequests-requestStats">) {
   const t = useI18n("widget.mediaRequests-requestStats");
   const tCommon = useI18n("common");
-  const requestStatsQuery = clientApi.widget.mediaRequests.getStats.useQuery({ integrationIds });
+  const requestStatsQuery = clientApi.widget.mediaRequests.getStats.useQuery({
+    integrationIds,
+    itemId: isEditMode ? undefined : itemId,
+  });
   const requestStats = getUsableWidgetQueryData(requestStatsQuery);
 
   const board = useRequiredBoard();

@@ -4612,8 +4612,17 @@
         },
         "recentDays": {
           "label": "Show only recent requests"
+        },
+        "scope": {
+          "label": "Requests to show",
+          "description": "Only the viewer applies to integrations with viewer scoping turned on",
+          "option": {
+            "everyone": "Everyone",
+            "mine": "Only the viewer"
+          }
         }
       },
+      "viewerUnlinked": "No linked account",
       "pending": {
         "approve": "Approve request",
         "approving": "Approving request...",

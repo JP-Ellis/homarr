@@ -24,6 +24,14 @@ const createOptions = () =>
       validate: z.number().min(0).max(365),
       defaultValue: 0,
     }),
+    scope: factory.select({
+      defaultValue: "everyone",
+      options: [
+        { value: "everyone", label: (t) => t("widget.mediaRequests-requestList.option.scope.option.everyone") },
+        { value: "mine", label: (t) => t("widget.mediaRequests-requestList.option.scope.option.mine") },
+      ],
+      withDescription: true,
+    }),
   }));
 
 export const { componentLoader, definition } = createWidgetDefinition("mediaRequests-requestList", {
@@ -38,6 +46,8 @@ export const { componentLoader, definition } = createWidgetDefinition("mediaRequ
           ? scope.options.statusFilter
           : mediaRequestStatusValues,
       recentDays: scope.options.recentDays,
+      scope: scope.options.scope,
+      itemId: scope.itemId,
     }),
   createOptions,
   contextActions: ({ integrationIds }) => [
