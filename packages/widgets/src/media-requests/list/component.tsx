@@ -29,6 +29,7 @@ export default function MediaServerWidget({
   isEditMode,
   options,
   width,
+  itemId,
 }: WidgetComponentProps<"mediaRequests-requestList">) {
   const t = useI18n("widget.mediaRequests-requestList");
   const interactIntegrationIds = new Set(
@@ -43,6 +44,8 @@ export default function MediaServerWidget({
         ? options.statusFilter
         : ["pending", "approved", "declined", "failed", "completed"],
     recentDays: options.recentDays,
+    scope: options.scope,
+    itemId: isEditMode ? undefined : itemId,
   });
   const mediaRequestData = getUsableWidgetQueryData(mediaRequestQuery);
 
@@ -50,6 +53,15 @@ export default function MediaServerWidget({
   if (!mediaRequestData) return <WidgetEmptyState />;
   const { requests: mediaRequests, failedIntegrations } = mediaRequestData;
   if (mediaRequests.length === 0 && failedIntegrations.length === 0) {
+    if (mediaRequestData.viewerUnlinked)
+      return (
+        <MediaRequestsEmptyState
+          title={t("viewerUnlinked")}
+          description={t("empty.description")}
+          integrationIds={integrationIds}
+          isEditMode={isEditMode}
+        />
+      );
     return (
       <MediaRequestsEmptyState
         title={t("empty.title")}
@@ -68,6 +80,11 @@ export default function MediaServerWidget({
         <Group px="sm" pt="xs">
           <IntegrationErrorIndicator results={failedIntegrations} />
         </Group>
+      )}
+      {isEditMode && mediaRequestData.scopeIgnored && (
+        <Text size="xs" c="dimmed" px="sm" pt="xs">
+          {t("scopeIgnored")}
+        </Text>
       )}
       <ScrollArea
         className="mediaRequests-list-scrollArea"

@@ -2,7 +2,7 @@
 
 import { useCallback, useImperativeHandle, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Anchor, Button, ButtonGroup, Fieldset, Group, Stack, Text, TextInput } from "@mantine/core";
+import { Alert, Anchor, Button, ButtonGroup, Fieldset, Group, Select, Stack, Text, TextInput } from "@mantine/core";
 import { IconInfoCircle, IconPencil, IconPlus, IconUnlink } from "@tabler/icons-react";
 import { z } from "zod/v4";
 
@@ -14,6 +14,7 @@ import {
   getAllSecretKindOptions,
   getDefaultSecretKinds,
   getOptionalSecretKinds,
+  getViewerScopingModes,
   invariantTechnicalLabels,
 } from "@homarr/definitions";
 import { useZodForm } from "@homarr/form";
@@ -29,6 +30,7 @@ import { IntegrationSecretInput } from "../../_components/secrets/integration-se
 import { SecretKindsSegmentedControl } from "../../_components/secrets/integration-secret-segmented-control";
 import { IntegrationTestConnectionError } from "../../_components/test-connection/integration-test-connection-error";
 import type { AnyMappedTestConnectionError } from "../../_components/test-connection/types";
+import { ViewerMappingTable } from "./_viewer-mapping-table";
 
 interface EditIntegrationFormProps {
   integration: RouterOutputs["integration"]["byId"];
@@ -78,6 +80,7 @@ export const EditIntegrationForm = ({
     matchingSecretKinds[0] ??
     getDefaultSecretKinds(integration.kind);
 
+  const viewerScopingModes = getViewerScopingModes(integration.kind);
   const hasUrlSecret = initialSecretsKinds.includes("url");
   const utils = clientApi.useUtils();
   const router = useRouter();
@@ -90,6 +93,7 @@ export const EditIntegrationForm = ({
         value: integration.secrets.find((secret) => secret.kind === kind)?.value ?? "",
       })),
       app: integration.app ?? null,
+      viewerScoping: integration.viewerScoping,
       optionalSecrets: optionalSecretKinds.map((kind) => ({
         kind,
         value: integration.secrets.find((secret) => secret.kind === kind)?.value ?? "",
@@ -274,6 +278,21 @@ export const EditIntegrationForm = ({
           ))}
         </Stack>
       </Fieldset>
+
+      {viewerScopingModes.length > 1 && (
+        <Select
+          label={tIntegration("field.viewerScoping.label")}
+          description={tIntegration("field.viewerScoping.description")}
+          allowDeselect={false}
+          data={viewerScopingModes.map((mode) => ({
+            value: mode,
+            label: tIntegration(`field.viewerScoping.mode.${mode}`),
+          }))}
+          {...form.getInputProps("viewerScoping")}
+        />
+      )}
+
+      {integration.viewerScoping !== "off" && <ViewerMappingTable integrationId={integration.id} />}
 
       <IntegrationLinkApp value={form.values.app} onChange={(app) => form.setFieldValue("app", app)} />
 

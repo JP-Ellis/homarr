@@ -26,6 +26,7 @@ import type {
   SearchEngineType,
   SectionKind,
   SupportedAuthProvider,
+  ViewerScopingMode,
   WidgetKind,
 } from "@homarr/definitions";
 import { defaultByteUnitSystem } from "@homarr/common";
@@ -201,6 +202,7 @@ export const integrations = sqliteTable(
     url: text().notNull(),
     kind: text().$type<IntegrationKind>().notNull(),
     appId: text().references(() => apps.id, { onDelete: "set null" }),
+    viewerScoping: text().$type<ViewerScopingMode>().default("off").notNull(),
   },
   (table) => ({
     kindIdx: index("integration__kind_idx").on(table.kind),
@@ -242,6 +244,24 @@ export const integrationUserPermissions = sqliteTable(
   (table) => ({
     compoundKey: primaryKey({
       columns: [table.integrationId, table.userId, table.permission],
+    }),
+  }),
+);
+
+export const integrationViewerMappings = sqliteTable(
+  "integration_viewer_mapping",
+  {
+    integrationId: text()
+      .notNull()
+      .references(() => integrations.id, { onDelete: "cascade" }),
+    userId: text()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    externalUserId: text().notNull(),
+  },
+  (table) => ({
+    compoundKey: primaryKey({
+      columns: [table.integrationId, table.userId],
     }),
   }),
 );
@@ -827,6 +847,7 @@ export const integrationRelations = relations(integrations, ({ one, many }) => (
   secrets: many(integrationSecrets),
   items: many(integrationItems),
   userPermissions: many(integrationUserPermissions),
+  viewerMappings: many(integrationViewerMappings),
   groupPermissions: many(integrationGroupPermissions),
   app: one(apps, {
     fields: [integrations.appId],
@@ -841,6 +862,17 @@ export const integrationUserPermissionRelations = relations(integrationUserPermi
   }),
   integration: one(integrations, {
     fields: [integrationUserPermissions.integrationId],
+    references: [integrations.id],
+  }),
+}));
+
+export const integrationViewerMappingRelations = relations(integrationViewerMappings, ({ one }) => ({
+  user: one(users, {
+    fields: [integrationViewerMappings.userId],
+    references: [users.id],
+  }),
+  integration: one(integrations, {
+    fields: [integrationViewerMappings.integrationId],
     references: [integrations.id],
   }),
 }));

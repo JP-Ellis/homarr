@@ -10,6 +10,7 @@ export * from "./interfaces/service-version/service-version-types";
 export * from "./interfaces/vpn-summary/vpn-summary-types";
 export * from "./interfaces/indexer-manager/indexer-manager-types";
 export * from "./interfaces/media-requests/media-request-types";
+export * from "./interfaces/viewer-scope/viewer-scope-integration";
 export * from "./base/searchable-integration";
 export * from "./homeassistant/homeassistant-types";
 export * from "./proxmox/proxmox-types";

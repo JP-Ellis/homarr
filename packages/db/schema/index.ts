@@ -32,6 +32,7 @@ export const {
   integrationItems,
   integrationSecrets,
   integrationUserPermissions,
+  integrationViewerMappings,
   integrations,
   invites,
   items,

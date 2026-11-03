@@ -45,3 +45,12 @@ rather than every connected session.
 ### Configuration
 
 <WidgetConfig configuration={mediaServerWidget.configuration} />
+
+### Showing each viewer their own streams
+
+Set **Streams to show** to "Only the viewer" and the widget lists only the signed-in viewer's own sessions. This applies
+to integrations that have viewer scoping turned on in their settings; other integrations still show every session. A
+viewer without a linked account on the media server sees an empty widget with the note "No linked account".
+
+Once the widget is saved, the saved option decides what the viewer receives. Showing everyone's streams from a
+viewer-scoped integration needs interact access to that integration.

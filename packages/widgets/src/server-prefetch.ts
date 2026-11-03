@@ -176,6 +176,8 @@ export const prefetchInitialWidgetData = (
             trpc.widget.mediaServer.getCurrentStreams.queryOptions({
               integrationIds,
               showOnlyPlaying: (options.showOnlyPlaying ?? true) === true,
+              scope: options.scope === "mine" ? "mine" : "everyone",
+              itemId: item.id,
             }),
           );
         break;
@@ -196,6 +198,8 @@ export const prefetchInitialWidgetData = (
             integrationIds,
             statuses,
             recentDays: Number(options.recentDays ?? 0),
+            scope: options.scope === "mine" ? "mine" : "everyone",
+            itemId: item.id,
           }),
         );
         break;

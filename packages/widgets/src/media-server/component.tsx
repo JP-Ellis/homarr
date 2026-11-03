@@ -173,10 +173,14 @@ export default function MediaServerWidget({
   width,
   isEditMode,
   displayMode,
+  itemId,
 }: WidgetComponentProps<"mediaServer">) {
   const currentStreamsQuery = clientApi.widget.mediaServer.getCurrentStreams.useQuery({
     integrationIds,
     showOnlyPlaying: options.showOnlyPlaying,
+    scope: options.scope,
+    // An item being edited is not saved yet, so the preview follows the rules for requests without an item.
+    itemId: isEditMode ? undefined : itemId,
   });
   const currentStreamsData = getUsableWidgetQueryData(currentStreamsQuery);
   const currentStreams = useMemo(() => currentStreamsData ?? [], [currentStreamsData]);
@@ -241,6 +245,8 @@ export default function MediaServerWidget({
   }
   const totalBitrateLabel = showBitrate ? formatBitrate(totalBitrateKbps) : null;
   const hasFailedIntegrations = currentStreams.some(({ error }) => Boolean(error));
+  const isViewerUnlinked = currentStreams.length > 0 && currentStreams.every(({ viewerUnlinked }) => viewerUnlinked);
+  const isScopeIgnored = isEditMode && currentStreams.some(({ scopeIgnored }) => scopeIgnored);
 
   return (
     <Stack className={classes.root} gap={0} h="100%" display="flex">
@@ -270,6 +276,16 @@ export default function MediaServerWidget({
         <Group px="xs" justify="flex-end">
           <IntegrationErrorIndicator results={currentStreams} />
         </Group>
+      )}
+      {isViewerUnlinked && (
+        <Text size="xs" c="dimmed" px="xs" py={4}>
+          {t("viewerUnlinked")}
+        </Text>
+      )}
+      {isScopeIgnored && (
+        <Text size="xs" c="dimmed" px="xs" py={4}>
+          {t("scopeIgnored")}
+        </Text>
       )}
       <ScrollArea
         className={classes.tableViewport}

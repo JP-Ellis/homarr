@@ -141,6 +141,13 @@
       "when": 1792837634114,
       "tag": "0019_sturdy_power_pack",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793671893257,
+      "tag": "0020_thin_zarda",
+      "breakpoints": true
     }
   ]
 }

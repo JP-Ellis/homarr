@@ -1473,7 +1473,31 @@
       },
       "apiKeySettings": {
         "label": "Get API key"
+      },
+      "viewerScoping": {
+        "label": "Viewer scoping",
+        "description": "Show each signed-in viewer only their own data from this service.",
+        "mode": {
+          "off": "Off (everyone sees the same data)",
+          "username": "Match by username",
+          "email": "Match by email"
+        }
       }
+    },
+    "viewerMapping": {
+      "title": "Account links",
+      "description": "Homarr matches OIDC and LDAP users to service users automatically. Pin an override to link a Homarr user to a specific service user, which also works for local accounts.",
+      "column": {
+        "user": "Homarr user",
+        "automatic": "Automatic",
+        "override": "Override"
+      },
+      "notLinked": "Not linked",
+      "automaticPlaceholder": "Automatic",
+      "overrideFor": "Override for {name}",
+      "clear": "Clear",
+      "loadError": "The service users could not be loaded. Check the connection and try again.",
+      "saveError": "The account link could not be saved"
     },
     "action": {
       "create": "New integration"
@@ -3931,6 +3955,14 @@
           "label": "Show only currently playing",
           "description": "This option is not supported by every media server"
         },
+        "scope": {
+          "label": "Streams to show",
+          "description": "Only the viewer applies to integrations with viewer scoping turned on",
+          "option": {
+            "everyone": "Everyone",
+            "mine": "Only the viewer"
+          }
+        },
         "showBitrate": {
           "label": "Show bitrate",
           "description": "Show the current playback bitrate next to the location"
@@ -3940,6 +3972,8 @@
           "description": "Show whether the stream is on your LAN or WAN"
         }
       },
+      "viewerUnlinked": "No linked account",
+      "scopeIgnored": "Viewer scoping is off for this integration, so everyone's data is shown.",
       "footer": {
         "streams": "{count, plural, one {# active stream} other {# active streams}}",
         "totalBitrate": "Total: {bitrate}"
@@ -4603,8 +4637,18 @@
         },
         "recentDays": {
           "label": "Show only recent requests"
+        },
+        "scope": {
+          "label": "Requests to show",
+          "description": "Only the viewer applies to integrations with viewer scoping turned on",
+          "option": {
+            "everyone": "Everyone",
+            "mine": "Only the viewer"
+          }
         }
       },
+      "viewerUnlinked": "No linked account",
+      "scopeIgnored": "Viewer scoping is off for this integration, so everyone's data is shown.",
       "pending": {
         "approve": "Approve request",
         "approving": "Approving request...",

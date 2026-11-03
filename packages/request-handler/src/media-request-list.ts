@@ -19,6 +19,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 export const mediaRequestListInputSchema = z.object({
   statuses: z.array(z.enum(mediaRequestStatusValues)).nonempty(),
   recentDays: z.number().min(0).max(365),
+  requestedBy: z.number().optional(),
 });
 
 export type MediaRequestListInput = z.infer<typeof mediaRequestListInputSchema>;
@@ -31,7 +32,9 @@ export const mediaRequestListRequestHandler = createIntegrationRequestHandler<
   cacheNamespace: "media-requests:list",
   async requestAsync(integration, input) {
     const integrationInstance = await createIntegrationAsync(integration);
-    const requests = await integrationInstance.getRequestsAsync();
+    const requests = await integrationInstance.getRequestsAsync(
+      input.requestedBy === undefined ? undefined : { requestedBy: input.requestedBy },
+    );
     const cutoff = input.recentDays > 0 ? Date.now() - input.recentDays * MS_PER_DAY : null;
     const statusSet = new Set<MediaRequestStatus>(input.statuses);
     return requests.filter((request) => {

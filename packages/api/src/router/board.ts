@@ -79,6 +79,7 @@ import { sectionSchema, sharedItemSchema } from "@homarr/validation/shared";
 import { createTRPCRouter, permissionRequiredProcedure, protectedProcedure, publicProcedure } from "../trpc";
 import { throwIfActionForbiddenAsync } from "./board/board-access";
 import { throwIfIntegrationActionsForbiddenAsync } from "./integration/integration-access";
+import { throwIfEveryoneScopeForbiddenAsync } from "../viewer-scope/everyone-scope-access";
 import {
   throwIfCustomWidgetBoardDuplicationForbidden,
   throwIfCustomWidgetPlacementChangeForbidden,
@@ -806,14 +807,14 @@ export const boardRouter = createTRPCRouter({
 
       const { sections: boardSections, items: boardItems, layouts: boardLayouts, ...boardProps } = board;
       throwIfCustomWidgetBoardDuplicationForbidden(ctx.session.user.permissions.includes("admin"), boardItems);
-      await validateWidgetConfigurationsAsync(
-        ctx,
-        boardItems.map((item) => ({
-          id: item.id,
-          kind: item.kind,
-          integrationIds: item.integrations.map(({ integrationId }) => integrationId),
-        })),
-      );
+      const duplicatedItems = boardItems.map((item) => ({
+        id: item.id,
+        kind: item.kind,
+        options: superjson.parse<Record<string, unknown>>(item.options),
+        integrationIds: item.integrations.map(({ integrationId }) => integrationId),
+      }));
+      await validateWidgetConfigurationsAsync(ctx, duplicatedItems);
+      await throwIfEveryoneScopeForbiddenAsync(ctx, duplicatedItems);
 
       const newBoardId = createId();
 
@@ -1735,6 +1736,7 @@ export const boardRouter = createTRPCRouter({
       const dbBoard = await getFullBoardWithWhereAsync(ctx.db, eq(boards.id, input.id), ctx.session.user.id);
       throwIfBoardLayoutBoundsInvalid(getBoardLayoutBoundsIssue({ ...input, layouts: dbBoard.layouts }));
       await validateWidgetConfigurationsAsync(ctx, input.items, dbBoard.items);
+      await throwIfEveryoneScopeForbiddenAsync(ctx, input.items, dbBoard.items);
       throwIfCustomWidgetPlacementChangeForbidden({
         isAdmin: ctx.session.user.permissions.includes("admin"),
         submittedItems: input.items,
@@ -2324,6 +2326,9 @@ export const boardRouter = createTRPCRouter({
 
       await validateWidgetConfigurationsAsync(ctx, [
         { id: "", kind: input.kind, integrationIds: input.integrationIds },
+      ]);
+      await throwIfEveryoneScopeForbiddenAsync(ctx, [
+        { id: "", kind: input.kind, options: input.options, integrationIds: input.integrationIds },
       ]);
       throwIfCustomWidgetPlacementChangeForbidden({
         isAdmin: ctx.session.user.permissions.includes("admin"),

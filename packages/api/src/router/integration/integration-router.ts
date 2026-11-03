@@ -17,16 +17,21 @@ import {
   integrations,
   integrationSecrets,
   integrationUserPermissions,
+  integrationViewerMappings,
+  users,
 } from "@homarr/db/schema";
 import type {
   GroupPermissionKey,
+  IntegrationKind,
   IntegrationKindByCategory,
   IntegrationPermission,
   IntegrationSecretKind,
+  ViewerScopingMode,
 } from "@homarr/definitions";
 import {
   getIntegrationKindsByCategory,
   getPermissionsWithParents,
+  getViewerScopingModes,
   integrationCategories,
   integrationDefs,
   integrationKinds,
@@ -52,6 +57,9 @@ import { integrationRequestProcedure } from "./integration-request";
 import { MissingSecretError, testConnectionAsync } from "./integration-test-connection";
 import { integrationTestStoredConnectionProcedure } from "./integration-test-stored-connection";
 import { mapTestConnectionError } from "./map-test-connection-error";
+import { matchViewer } from "../../viewer-scope/match-viewer";
+import type { ViewerResolution } from "../../viewer-scope/match-viewer";
+import { clearViewerResolutionCache, getViewerScopeUsersAsync } from "../../viewer-scope/resolve-viewer";
 
 // Calling `searchAsync` on a union of integration classes types the result as only one member's, so the union is
 // spelled out per kind: Overseerr's results keep their media type, Thingport's keep their own shape.
@@ -60,6 +68,10 @@ type IntegrationSearchResult<TKind extends IntegrationKindByCategory<"search"> =
 
 const logger = createLogger({ module: "integrationRouter" });
 const mediaRequestSearchKinds = getIntegrationKindsByCategory("mediaSearch");
+
+const viewerMappingsInputSchema = z.object({ integrationId: z.string() });
+const deleteViewerMappingInputSchema = z.object({ integrationId: z.string(), userId: z.string() });
+const saveViewerMappingInputSchema = deleteViewerMappingInputSchema.extend({ externalUserId: z.string().min(1) });
 
 export const integrationRouter = createTRPCRouter({
   request: integrationRequestProcedure,
@@ -231,6 +243,7 @@ export const integrationRouter = createTRPCRouter({
           updatedAt: secret.updatedAt,
         })),
         app: integration.app,
+        viewerScoping: integration.viewerScoping,
       };
     }),
   create: permissionRequiredProcedure
@@ -257,6 +270,8 @@ export const integrationRouter = createTRPCRouter({
           message: "Permission denied",
         });
       }
+
+      throwIfViewerScopingUnsupported(input.kind, input.viewerScoping);
 
       const result = await testConnectionAsync({
         id: "new",
@@ -289,6 +304,7 @@ export const integrationRouter = createTRPCRouter({
         url: input.url,
         kind: input.kind,
         appId,
+        viewerScoping: input.viewerScoping,
       });
 
       if (input.secrets.length >= 1) {
@@ -339,6 +355,8 @@ export const integrationRouter = createTRPCRouter({
       });
     }
 
+    if (input.viewerScoping !== undefined) throwIfViewerScopingUnsupported(integration.kind, input.viewerScoping);
+
     const testResult = await testConnectionAsync(
       {
         id: input.id,
@@ -370,6 +388,7 @@ export const integrationRouter = createTRPCRouter({
         name: input.name,
         url: input.url,
         appId: input.appId,
+        ...(input.viewerScoping !== undefined && { viewerScoping: input.viewerScoping }),
       })
       .where(eq(integrations.id, input.id));
 
@@ -423,6 +442,89 @@ export const integrationRouter = createTRPCRouter({
     // Invalidate all cached data for this integration so that widgets pick up the
     // new configuration immediately instead of serving stale (or errored) data.
     await invalidateIntegrationCacheAsync(input.id);
+    // The URL, secrets or mode may have changed, and the cached user list is keyed by integration ID only.
+    clearViewerResolutionCache(input.id);
+  }),
+  viewerMappings: protectedProcedure.input(viewerMappingsInputSchema).query(async ({ ctx, input }) => {
+    await throwIfActionForbiddenAsync(ctx, eq(integrations.id, input.integrationId), "full");
+
+    const integration = await ctx.db.query.integrations.findFirst({
+      where: eq(integrations.id, input.integrationId),
+      with: { secrets: true, app: { columns: { href: true } } },
+    });
+    if (!integration) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Integration not found" });
+    }
+
+    const integrationUsers =
+      (await getViewerScopeUsersAsync({
+        id: integration.id,
+        name: integration.name,
+        url: integration.url,
+        kind: integration.kind,
+        viewerScoping: integration.viewerScoping,
+        externalUrl: integration.app?.href ?? null,
+        decryptedSecrets: integration.secrets.map((secret) => ({
+          ...secret,
+          value: decryptSecret(secret.value),
+        })),
+      })) ?? [];
+
+    const [homarrUsers, overrides] = await Promise.all([
+      ctx.db.query.users.findMany({
+        columns: { id: true, name: true, email: true, provider: true },
+        orderBy: asc(users.name),
+      }),
+      ctx.db.query.integrationViewerMappings.findMany({
+        where: eq(integrationViewerMappings.integrationId, input.integrationId),
+      }),
+    ]);
+    const overrideByUserId = new Map(overrides.map((override) => [override.userId, override.externalUserId]));
+    const unlinked: ViewerResolution = { status: "unlinked" };
+
+    return {
+      users: homarrUsers.map((user) => ({
+        userId: user.id,
+        userName: user.name,
+        provider: user.provider,
+        automatic:
+          integration.viewerScoping === "off"
+            ? unlinked
+            : matchViewer(user, integration.viewerScoping, integrationUsers),
+        override: overrideByUserId.get(user.id) ?? null,
+      })),
+      integrationUsers,
+    };
+  }),
+  saveViewerMapping: protectedProcedure.input(saveViewerMappingInputSchema).mutation(async ({ ctx, input }) => {
+    await throwIfActionForbiddenAsync(ctx, eq(integrations.id, input.integrationId), "full");
+
+    const user = await ctx.db.query.users.findFirst({ columns: { id: true }, where: eq(users.id, input.userId) });
+    if (!user) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+    }
+
+    await ctx.db
+      .insert(integrationViewerMappings)
+      .values(input)
+      .onConflictDoUpdate({
+        target: [integrationViewerMappings.integrationId, integrationViewerMappings.userId],
+        set: { externalUserId: input.externalUserId },
+      });
+    clearViewerResolutionCache(input.integrationId, input.userId);
+  }),
+  deleteViewerMapping: protectedProcedure.input(deleteViewerMappingInputSchema).mutation(async ({ ctx, input }) => {
+    await throwIfActionForbiddenAsync(ctx, eq(integrations.id, input.integrationId), "full");
+
+    await ctx.db
+      .delete(integrationViewerMappings)
+      .where(
+        and(
+          eq(integrationViewerMappings.integrationId, input.integrationId),
+          eq(integrationViewerMappings.userId, input.userId),
+        ),
+      );
+    clearViewerResolutionCache(input.integrationId, input.userId);
   }),
   delete: protectedProcedure
     .meta({
@@ -762,6 +864,15 @@ const globalIntegrationPermissions = [
   "integration-interact-all",
   "integration-full-all",
 ] satisfies GroupPermissionKey[];
+
+const throwIfViewerScopingUnsupported = (kind: IntegrationKind, viewerScoping: ViewerScopingMode) => {
+  if (getViewerScopingModes(kind).includes(viewerScoping)) return;
+
+  throw new TRPCError({
+    code: "BAD_REQUEST",
+    message: `Viewer scoping "${viewerScoping}" is not supported by integration kind "${kind}"`,
+  });
+};
 
 const hasGlobalIntegrationAccess = (session: Session | null) =>
   globalIntegrationPermissions.some((permission) => session?.user.permissions.includes(permission) ?? false);

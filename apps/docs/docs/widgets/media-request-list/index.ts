@@ -26,6 +26,12 @@ export const mediaRequestListWidget: WidgetDefinition = {
         values: "0-365",
         defaultValue: "0",
       },
+      {
+        name: "Requests to show",
+        description: "Only the viewer lists the signed-in viewer's own requests on integrations with viewer scoping.",
+        values: { type: "select", options: ["Everyone", "Only the viewer"] },
+        defaultValue: "Everyone",
+      },
     ],
   },
 };

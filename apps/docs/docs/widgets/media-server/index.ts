@@ -14,6 +14,12 @@ export const mediaServerWidget: WidgetDefinition = {
         values: { type: "boolean" },
         defaultValue: "yes",
       },
+      {
+        name: "Streams to show",
+        description: "Only the viewer lists the signed-in viewer's own streams on integrations with viewer scoping.",
+        values: { type: "select", options: ["Everyone", "Only the viewer"] },
+        defaultValue: "Everyone",
+      },
     ],
   },
 };
