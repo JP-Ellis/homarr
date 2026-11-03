@@ -54,7 +54,11 @@ export const mediaRequestsRouter = createTRPCRouter({
           });
           if ("forbidden" in decision) throw new Error("Viewer scope is not allowed for this integration");
 
-          const handlerInput = { statuses: input.statuses, recentDays: input.recentDays };
+          const handlerInput = {
+            integrationIds: input.integrationIds,
+            statuses: input.statuses,
+            recentDays: input.recentDays,
+          };
           const integrationSummary = { id: integration.id, name: integration.name, kind: integration.kind };
 
           if (decision.scope === "mine") {

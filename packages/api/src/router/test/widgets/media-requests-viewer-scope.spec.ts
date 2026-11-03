@@ -102,7 +102,9 @@ describe("mediaRequests viewer scope", () => {
 
     const result = await caller.getLatestRequests(listInput(integrationId, "mine"));
 
-    expect(handlerInputs).toEqual([{ statuses: ["pending"], recentDays: 0, requestedBy: 7 }]);
+    expect(handlerInputs).toEqual([
+      { integrationIds: [integrationId], statuses: ["pending"], recentDays: 0, requestedBy: 7 },
+    ]);
     expect(result.viewerUnlinked).toBe(false);
   });
 
@@ -132,7 +134,7 @@ describe("mediaRequests viewer scope", () => {
 
     const result = await caller.getLatestRequests(listInput(integrationId, "mine"));
 
-    expect(handlerInputs).toEqual([{ statuses: ["pending"], recentDays: 0 }]);
+    expect(handlerInputs).toEqual([{ integrationIds: [integrationId], statuses: ["pending"], recentDays: 0 }]);
     expect(Object.keys(handlerInputs[0] as object)).not.toContain("requestedBy");
     expect(result.requests).toHaveLength(3);
     expect(result.viewerUnlinked).toBe(false);
