@@ -327,6 +327,47 @@ describe("matchesWidgetItemQuery", () => {
     expect(matches("mediaServer", streamsQuery.path, streamsQuery.input, mediaScope)).toBe(false);
   });
 
+  test("matches viewer-scoped media queries with or without the item id and by scope", () => {
+    const streamsPath = ["widget", "mediaServer", "getCurrentStreams"];
+    const listPath = ["widget", "mediaRequests", "getLatestRequests"];
+    const statsPath = ["widget", "mediaRequests", "getStats"];
+    const mediaScope = createScope({ options: { showOnlyPlaying: true, scope: "mine" } });
+    const listScope = createScope({ options: { statusFilter: ["pending"], recentDays: 0, scope: "mine" } });
+    const streamsInput = { integrationIds: ["integration-1"], showOnlyPlaying: true, scope: "mine" };
+    const listInput = { integrationIds: ["integration-1"], statuses: ["pending"], recentDays: 0, scope: "mine" };
+
+    expect(matches("mediaServer", streamsPath, streamsInput, mediaScope)).toBe(true);
+    expect(matches("mediaServer", streamsPath, { ...streamsInput, itemId: "item-1" }, mediaScope)).toBe(true);
+    expect(matches("mediaServer", streamsPath, { ...streamsInput, itemId: "item-2" }, mediaScope)).toBe(false);
+    expect(matches("mediaServer", streamsPath, { ...streamsInput, scope: "everyone" }, mediaScope)).toBe(false);
+
+    expect(matches("mediaRequests-requestList", listPath, listInput, listScope)).toBe(true);
+    expect(matches("mediaRequests-requestList", listPath, { ...listInput, itemId: "item-1" }, listScope)).toBe(true);
+    expect(matches("mediaRequests-requestList", listPath, { ...listInput, itemId: "item-2" }, listScope)).toBe(false);
+    expect(matches("mediaRequests-requestList", listPath, { ...listInput, scope: "everyone" }, listScope)).toBe(false);
+
+    const statsScope = createScope();
+    expect(matches("mediaRequests-requestStats", statsPath, { integrationIds: ["integration-1"] }, statsScope)).toBe(
+      true,
+    );
+    expect(
+      matches(
+        "mediaRequests-requestStats",
+        statsPath,
+        { integrationIds: ["integration-1"], itemId: "item-1" },
+        statsScope,
+      ),
+    ).toBe(true);
+    expect(
+      matches(
+        "mediaRequests-requestStats",
+        statsPath,
+        { integrationIds: ["integration-1"], itemId: "item-2" },
+        statsScope,
+      ),
+    ).toBe(false);
+  });
+
   test("uses each Calendar instance's registered month", () => {
     const path = ["widget", "calendar", "findAllEvents"];
     const januaryInput = {

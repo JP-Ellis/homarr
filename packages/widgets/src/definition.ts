@@ -174,6 +174,12 @@ export const widgetQueryInputMatches = (input: unknown, expected: Record<string,
 
 export const widgetQueryValueEquals = (left: unknown, right: unknown) => hashKey([left]) === hashKey([right]);
 
+/**
+ * Matches a query that names this item, or names no item: edit mode queries without one.
+ */
+export const widgetQueryItemIdMatches = (input: unknown, itemId: string | undefined) =>
+  isRecord(input) && (input.itemId === undefined || input.itemId === itemId);
+
 export interface WidgetProps<TKind extends WidgetKind> {
   options: inferOptionsFromCreator<WidgetOptionsRecordOf<TKind>>;
   integrationIds: string[];

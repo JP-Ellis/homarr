@@ -2,7 +2,7 @@ import { IconVideo } from "@tabler/icons-react";
 
 import { getWidgetIntegrationConfig } from "@homarr/definitions";
 
-import { createWidgetDefinition, widgetQueryInputMatches } from "../definition";
+import { createWidgetDefinition, widgetQueryInputMatches, widgetQueryItemIdMatches } from "../definition";
 import { optionsBuilder } from "../options";
 
 export const { componentLoader, definition } = createWidgetDefinition("mediaServer", {
@@ -14,8 +14,7 @@ export const { componentLoader, definition } = createWidgetDefinition("mediaServ
       integrationIds: scope.integrationIds,
       showOnlyPlaying: scope.options.showOnlyPlaying,
       scope: scope.options.scope,
-      itemId: scope.itemId,
-    }),
+    }) && widgetQueryItemIdMatches(input, scope.itemId),
   refetchInterval: 10,
   createOptions() {
     return optionsBuilder.from((factory) => ({

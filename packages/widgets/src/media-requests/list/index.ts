@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 import { getWidgetIntegrationConfig } from "@homarr/definitions";
 import { openMediaRequestSearch } from "@homarr/spotlight";
 
-import { createWidgetDefinition, widgetQueryInputMatches } from "../../definition";
+import { createWidgetDefinition, widgetQueryInputMatches, widgetQueryItemIdMatches } from "../../definition";
 import { optionsBuilder } from "../../options";
 
 const mediaRequestStatusValues = ["pending", "approved", "declined", "failed", "completed"] as const;
@@ -47,8 +47,7 @@ export const { componentLoader, definition } = createWidgetDefinition("mediaRequ
           : mediaRequestStatusValues,
       recentDays: scope.options.recentDays,
       scope: scope.options.scope,
-      itemId: scope.itemId,
-    }),
+    }) && widgetQueryItemIdMatches(input, scope.itemId),
   createOptions,
   contextActions: ({ integrationIds }) => [
     {
