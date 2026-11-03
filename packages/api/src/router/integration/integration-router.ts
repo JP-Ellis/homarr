@@ -20,13 +20,16 @@ import {
 } from "@homarr/db/schema";
 import type {
   GroupPermissionKey,
+  IntegrationKind,
   IntegrationKindByCategory,
   IntegrationPermission,
   IntegrationSecretKind,
+  ViewerScopingMode,
 } from "@homarr/definitions";
 import {
   getIntegrationKindsByCategory,
   getPermissionsWithParents,
+  getViewerScopingModes,
   integrationCategories,
   integrationDefs,
   integrationKinds,
@@ -231,6 +234,7 @@ export const integrationRouter = createTRPCRouter({
           updatedAt: secret.updatedAt,
         })),
         app: integration.app,
+        viewerScoping: integration.viewerScoping,
       };
     }),
   create: permissionRequiredProcedure
@@ -257,6 +261,8 @@ export const integrationRouter = createTRPCRouter({
           message: "Permission denied",
         });
       }
+
+      throwIfViewerScopingUnsupported(input.kind, input.viewerScoping);
 
       const result = await testConnectionAsync({
         id: "new",
@@ -289,6 +295,7 @@ export const integrationRouter = createTRPCRouter({
         url: input.url,
         kind: input.kind,
         appId,
+        viewerScoping: input.viewerScoping,
       });
 
       if (input.secrets.length >= 1) {
@@ -339,6 +346,8 @@ export const integrationRouter = createTRPCRouter({
       });
     }
 
+    throwIfViewerScopingUnsupported(integration.kind, input.viewerScoping);
+
     const testResult = await testConnectionAsync(
       {
         id: input.id,
@@ -370,6 +379,7 @@ export const integrationRouter = createTRPCRouter({
         name: input.name,
         url: input.url,
         appId: input.appId,
+        viewerScoping: input.viewerScoping,
       })
       .where(eq(integrations.id, input.id));
 
@@ -762,6 +772,15 @@ const globalIntegrationPermissions = [
   "integration-interact-all",
   "integration-full-all",
 ] satisfies GroupPermissionKey[];
+
+const throwIfViewerScopingUnsupported = (kind: IntegrationKind, viewerScoping: ViewerScopingMode) => {
+  if (getViewerScopingModes(kind).includes(viewerScoping)) return;
+
+  throw new TRPCError({
+    code: "BAD_REQUEST",
+    message: `Viewer scoping "${viewerScoping}" is not supported by integration kind "${kind}"`,
+  });
+};
 
 const hasGlobalIntegrationAccess = (session: Session | null) =>
   globalIntegrationPermissions.some((permission) => session?.user.permissions.includes(permission) ?? false);

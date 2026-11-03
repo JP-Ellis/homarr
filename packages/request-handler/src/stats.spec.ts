@@ -37,6 +37,7 @@ describe("demo integration statistics", () => {
     const snapshot = await getStatsSnapshotAsync({
       id: "demo-spoolman",
       appId: null,
+      viewerScoping: "off",
       kind: "spoolman",
       name: "Spoolman",
       url: "https://demo.homarr.dev",

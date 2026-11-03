@@ -38,6 +38,7 @@ import type {
   SearchEngineType,
   SectionKind,
   SupportedAuthProvider,
+  ViewerScopingMode,
   WidgetKind,
 } from "@homarr/definitions";
 import { defaultByteUnitSystem } from "@homarr/common";
@@ -215,6 +216,7 @@ export const integrations = pgTable(
     url: text().notNull(),
     kind: varchar({ length: 128 }).$type<IntegrationKind>().notNull(),
     appId: varchar({ length: 128 }).references(() => apps.id, { onDelete: "set null" }),
+    viewerScoping: varchar({ length: 16 }).$type<ViewerScopingMode>().default("off").notNull(),
   },
   (table) => ({
     kindIdx: index("integration__kind_idx").on(table.kind),
@@ -256,6 +258,24 @@ export const integrationUserPermissions = pgTable(
   (table) => ({
     compoundKey: primaryKey({
       columns: [table.integrationId, table.userId, table.permission],
+    }),
+  }),
+);
+
+export const integrationViewerMappings = pgTable(
+  "integration_viewer_mapping",
+  {
+    integrationId: varchar({ length: 64 })
+      .notNull()
+      .references(() => integrations.id, { onDelete: "cascade" }),
+    userId: varchar({ length: 64 })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    externalUserId: text().notNull(),
+  },
+  (table) => ({
+    compoundKey: primaryKey({
+      columns: [table.integrationId, table.userId],
     }),
   }),
 );
@@ -826,6 +846,7 @@ export const integrationRelations = relations(integrations, ({ one, many }) => (
   secrets: many(integrationSecrets),
   items: many(integrationItems),
   userPermissions: many(integrationUserPermissions),
+  viewerMappings: many(integrationViewerMappings),
   groupPermissions: many(integrationGroupPermissions),
   app: one(apps, {
     fields: [integrations.appId],
@@ -840,6 +861,17 @@ export const integrationUserPermissionRelations = relations(integrationUserPermi
   }),
   integration: one(integrations, {
     fields: [integrationUserPermissions.integrationId],
+    references: [integrations.id],
+  }),
+}));
+
+export const integrationViewerMappingRelations = relations(integrationViewerMappings, ({ one }) => ({
+  user: one(users, {
+    fields: [integrationViewerMappings.userId],
+    references: [users.id],
+  }),
+  integration: one(integrations, {
+    fields: [integrationViewerMappings.integrationId],
     references: [integrations.id],
   }),
 }));

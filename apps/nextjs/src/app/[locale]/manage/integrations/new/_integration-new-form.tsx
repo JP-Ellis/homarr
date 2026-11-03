@@ -102,6 +102,7 @@ export const NewIntegrationForm = ({
         value: "",
       })),
       attemptSearchEngineCreation: true,
+      viewerScoping: "off",
       hasApp: canCreateApps,
       appHref: url,
       appId: null,

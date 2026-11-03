@@ -1250,3 +1250,19 @@ export const httpIntegrationKinds: AtLeastOneOf<HttpIntegrationKind> = [
   firstHttpIntegrationKind,
   ...httpIntegrationKindValues.slice(1),
 ];
+
+export const viewerScopingModes = ["off", "username", "email"] as const;
+export type ViewerScopingMode = (typeof viewerScopingModes)[number];
+
+export const getViewerScopingModes = (kind: IntegrationKind): readonly ViewerScopingMode[] => {
+  switch (kind) {
+    case "jellyfin":
+      return ["off", "username"];
+    case "overseerr":
+    case "seerr":
+    case "jellyseerr":
+      return viewerScopingModes;
+    default:
+      return ["off"];
+  }
+};

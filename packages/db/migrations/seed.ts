@@ -428,6 +428,7 @@ const seedDefaultIntegrationsAsync = async (db: Database) => {
         url: defaultUrl,
         kind,
         appId: null,
+        viewerScoping: "off",
       });
     }
 

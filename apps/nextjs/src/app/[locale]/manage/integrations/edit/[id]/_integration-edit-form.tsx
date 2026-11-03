@@ -90,6 +90,7 @@ export const EditIntegrationForm = ({
         value: integration.secrets.find((secret) => secret.kind === kind)?.value ?? "",
       })),
       app: integration.app ?? null,
+      viewerScoping: integration.viewerScoping,
       optionalSecrets: optionalSecretKinds.map((kind) => ({
         kind,
         value: integration.secrets.find((secret) => secret.kind === kind)?.value ?? "",

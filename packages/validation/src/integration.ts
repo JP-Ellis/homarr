@@ -1,6 +1,11 @@
 import { z } from "zod/v4";
 
-import { integrationKinds, integrationPermissions, integrationSecretKinds } from "@homarr/definitions";
+import {
+  integrationKinds,
+  integrationPermissions,
+  integrationSecretKinds,
+  viewerScopingModes,
+} from "@homarr/definitions";
 
 import { appManageSchema } from "./app";
 import { zodEnumFromArray } from "./enums";
@@ -26,6 +31,7 @@ export const integrationCreateSchema = z.object({
     })
     .or(appManageSchema)
     .optional(),
+  viewerScoping: zodEnumFromArray(viewerScopingModes).default("off"),
 });
 
 export const integrationUpdateSchema = z.object({
@@ -40,6 +46,7 @@ export const integrationUpdateSchema = z.object({
     }),
   ),
   appId: z.string().nullable(),
+  viewerScoping: zodEnumFromArray(viewerScopingModes).default("off"),
 });
 
 export const integrationSavePermissionsSchema = createSavePermissionsSchema(zodEnumFromArray(integrationPermissions));

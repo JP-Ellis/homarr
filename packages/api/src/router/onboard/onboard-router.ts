@@ -446,6 +446,7 @@ export const onboardRouter = createTRPCRouter({
             url: integration.url,
             kind: integration.kind,
             appId,
+            viewerScoping: "off",
           } satisfies typeof integrations.$inferSelect,
           appRow: {
             id: appId,
