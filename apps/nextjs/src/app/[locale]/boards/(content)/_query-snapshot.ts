@@ -77,6 +77,15 @@ const getQueryIntegrationIds = (queryKey: QueryKey, board: Board) => {
   return null;
 };
 
+// The snapshot is shared by every viewer of the board, so a response filtered to
+// one viewer ("mine") must never enter it.
+const isViewerScoped = (queryKey: QueryKey) => {
+  const details = queryKey[1];
+  if (!details || typeof details !== "object" || !("input" in details)) return false;
+  const input = details.input;
+  return typeof input === "object" && input !== null && "scope" in input && input.scope === "mine";
+};
+
 const getShareableQueries = (
   queries: CachedQuery[],
   board: Board,
@@ -87,6 +96,7 @@ const getShareableQueries = (
   return queries.filter((query) => {
     if (query.meta?.rscWidgetPrefetch !== true || query.state.status !== "success") return false;
     if (query.state.dataUpdatedAt < Date.now() - snapshotMaxAgeMs) return false;
+    if (isViewerScoped(query.queryKey)) return false;
     const ids = getQueryIntegrationIds(query.queryKey, board);
     if (!ids?.every((id) => boardIntegrationIds.has(id) && allowedIds.has(id))) return false;
     const serialized = superjson.stringify({ key: query.queryKey, data: query.state.data });

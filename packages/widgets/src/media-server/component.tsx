@@ -179,7 +179,8 @@ export default function MediaServerWidget({
     integrationIds,
     showOnlyPlaying: options.showOnlyPlaying,
     scope: options.scope,
-    itemId,
+    // An item being edited is not saved yet, so the preview follows the rules for requests without an item.
+    itemId: isEditMode ? undefined : itemId,
   });
   const currentStreamsData = getUsableWidgetQueryData(currentStreamsQuery);
   const currentStreams = useMemo(() => currentStreamsData ?? [], [currentStreamsData]);
