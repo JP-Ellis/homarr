@@ -23,6 +23,7 @@ import type { IntegrationHttpAuthentication } from "../http-auth";
 import type { TestingResult } from "../base/test-connection/test-connection-service";
 import type { IMediaServerIntegration } from "../interfaces/media-server/media-server-integration";
 import type { CurrentSessionsInput, StreamSession } from "../interfaces/media-server/media-server-types";
+import type { IViewerScopeIntegration, ViewerScopeUser } from "../interfaces/viewer-scope/viewer-scope-integration";
 import type { IMediaReleasesIntegration, MediaRelease, MediaType } from "../types";
 
 export function ticksToMs(ticks: number | null | undefined): number | null {
@@ -88,11 +89,16 @@ const authorizationPrefix = 'MediaBrowser Client="Homarr", Device="Homarr", Devi
 const pendingAuthentications = new Map<string, Promise<string>>();
 
 @HandleIntegrationErrors([integrationAxiosHttpErrorHandler])
-export class JellyfinIntegration extends Integration implements IMediaServerIntegration, IMediaReleasesIntegration {
+export class JellyfinIntegration
+  extends Integration
+  implements IMediaServerIntegration, IMediaReleasesIntegration, IViewerScopeIntegration
+{
   public override async getHttpAuthenticationAsync(): Promise<IntegrationHttpAuthentication> {
     const accessToken = await this.getAccessTokenAsync();
     return {
-      headers: { Authorization: `${authorizationPrefix}, Token="${accessToken}"` },
+      headers: {
+        Authorization: `${authorizationPrefix}, Token="${accessToken}"`,
+      },
       redactValues: [accessToken],
     };
   }
@@ -108,14 +114,19 @@ export class JellyfinIntegration extends Integration implements IMediaServerInte
     const authenticate = async () => {
       const response = await fetchWithTrustedCertificatesAsync(this.url("/Users/AuthenticateByName"), {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: authorizationPrefix },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: authorizationPrefix,
+        },
         body: JSON.stringify({ Username: username, Pw: password }),
         redirect: "error",
       }).catch(() => {
         throw new Error("Jellyfin authentication failed");
       });
       if (!response.ok) throw new Error("Jellyfin authentication failed");
-      const result = (await response.json().catch(() => null)) as { AccessToken?: unknown } | null;
+      const result = (await response.json().catch(() => null)) as {
+        AccessToken?: unknown;
+      } | null;
       if (typeof result?.AccessToken !== "string" || result.AccessToken.length === 0)
         throw new Error("Jellyfin authentication failed");
       return result.AccessToken;
@@ -239,6 +250,20 @@ export class JellyfinIntegration extends Integration implements IMediaServerInte
           currentlyPlaying,
         };
       });
+  }
+
+  public async listViewerScopeUsersAsync(): Promise<ViewerScopeUser[]> {
+    const apiClient = await this.getApiAsync();
+    const users = await getUserApi(apiClient).getUsers();
+
+    return users.data
+      .filter((user): user is typeof user & { Id: string } => Boolean(user.Id))
+      .map((user) => ({
+        id: user.Id,
+        displayName: user.Name ?? user.Id,
+        usernames: user.Name ? [user.Name] : [],
+        email: null,
+      }));
   }
 
   public async getMediaReleasesAsync(): Promise<MediaRelease[]> {

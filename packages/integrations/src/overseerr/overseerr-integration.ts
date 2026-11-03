@@ -13,6 +13,7 @@ import type { ISearchableIntegration } from "../base/searchable-integration";
 import { TestConnectionError } from "../base/test-connection/test-connection-error";
 import type { TestingResult } from "../base/test-connection/test-connection-service";
 import type { IMediaRequestIntegration } from "../interfaces/media-requests/media-request-integration";
+import type { IViewerScopeIntegration, ViewerScopeUser } from "../interfaces/viewer-scope/viewer-scope-integration";
 import type {
   MediaAvailability,
   MediaRequest,
@@ -41,7 +42,7 @@ interface OverseerrSearchResult {
  */
 export class OverseerrIntegration
   extends Integration
-  implements IMediaRequestIntegration, ISearchableIntegration<OverseerrSearchResult>
+  implements IMediaRequestIntegration, ISearchableIntegration<OverseerrSearchResult>, IViewerScopeIntegration
 {
   public async getHttpAuthenticationAsync(): Promise<IntegrationHttpAuthentication> {
     return apiKeyAuth(this.integration);
@@ -129,22 +130,66 @@ export class OverseerrIntegration
     return { success: true };
   }
 
-  public async getRequestsAsync(): Promise<MediaRequest[]> {
+  public async listViewerScopeUsersAsync(): Promise<ViewerScopeUser[]> {
+    const pageSize = 100;
+    const users: ViewerScopeUser[] = [];
+    let skip = 0;
+
+    for (;;) {
+      const response = await fetchWithTrustedCertificatesAsync(this.url("/api/v1/user", { take: pageSize, skip }), {
+        headers: { "X-Api-Key": this.getSecretValue("apiKey") },
+      });
+      if (!response.ok) throw new ResponseError(response);
+      const page = await listUsersSchema.parseAsync(await response.json());
+
+      for (const user of page.results) {
+        users.push({
+          id: String(user.id),
+          displayName: user.displayName,
+          email: user.email ?? null,
+          usernames: [user.username, user.jellyfinUsername, user.plexUsername].filter(
+            (username): username is string => typeof username === "string" && username !== "",
+          ),
+        });
+      }
+
+      if (page.pageInfo.page >= page.pageInfo.pages) return users;
+      skip += pageSize;
+    }
+  }
+
+  public async getRequestsAsync(options?: { requestedBy?: number }): Promise<MediaRequest[]> {
     // One load shares certificate setup, sockets and TLS sessions. A later load
     // still reads current certificate settings, and no dispatcher is retained.
     const dispatcher = await createCertificateAgentAsync();
     try {
-      const fetchRequests = async (parameters: { take: number; filter?: string; sort?: string }) => {
+      const fetchRequests = async (parameters: {
+        take: number;
+        filter?: string;
+        sort?: string;
+        requestedBy?: number;
+      }) => {
         const response = await fetchWithTrustedCertificatesAsync(this.url("/api/v1/request", parameters), {
           headers: { "X-Api-Key": this.getSecretValue("apiKey") },
           dispatcher,
         });
         return (await getRequestsSchema.parseAsync(await response.json())).results;
       };
-      const [pendingResults, allResults] = await Promise.all([
-        fetchRequests({ take: 20, filter: "pending" }),
-        fetchRequests({ take: 20, sort: "modified" }),
-      ]);
+      // A single viewer's own requests are listed together, replacing the pending plus recent pair.
+      const [pendingResults, allResults] =
+        options?.requestedBy === undefined
+          ? await Promise.all([
+              fetchRequests({ take: 20, filter: "pending" }),
+              fetchRequests({ take: 20, sort: "modified" }),
+            ])
+          : [
+              [],
+              await fetchRequests({
+                take: 100,
+                requestedBy: options.requestedBy,
+                sort: "modified",
+              }),
+            ];
 
       //Concat the 2 lists while remove any duplicate pending from the all items list
       let requests;
@@ -272,7 +317,10 @@ export class OverseerrIntegration
   }
 
   public async approveRequestAsync(requestId: number): Promise<void> {
-    logger.info("Approving media request", { requestId, integration: this.integration.name });
+    logger.info("Approving media request", {
+      requestId,
+      integration: this.integration.name,
+    });
     const response = await fetchWithTrustedCertificatesAsync(this.url(`/api/v1/request/${requestId}/approve`), {
       method: "POST",
       headers: {
@@ -280,11 +328,17 @@ export class OverseerrIntegration
       },
     });
     if (!response.ok) throw new ResponseError(response);
-    logger.info("Successfully approved media request", { requestId, integration: this.integration.name });
+    logger.info("Successfully approved media request", {
+      requestId,
+      integration: this.integration.name,
+    });
   }
 
   public async declineRequestAsync(requestId: number): Promise<void> {
-    logger.info("Declining media request", { requestId, integration: this.integration.name });
+    logger.info("Declining media request", {
+      requestId,
+      integration: this.integration.name,
+    });
 
     const response = await fetchWithTrustedCertificatesAsync(this.url(`/api/v1/request/${requestId}/decline`), {
       method: "POST",
@@ -293,7 +347,10 @@ export class OverseerrIntegration
       },
     });
     if (!response.ok) throw new ResponseError(response);
-    logger.info("Successfully declined media request", { requestId, integration: this.integration.name });
+    logger.info("Successfully declined media request", {
+      requestId,
+      integration: this.integration.name,
+    });
   }
 
   private async getItemInformationAsync(
@@ -471,6 +528,20 @@ const getRequestsSchema = z.object({
       }
       return val;
     }),
+});
+
+const listUsersSchema = z.object({
+  pageInfo: z.object({ page: z.number(), pages: z.number() }),
+  results: z.array(
+    z.object({
+      id: z.number(),
+      displayName: z.string(),
+      email: z.string().nullish(),
+      username: z.string().nullish(),
+      jellyfinUsername: z.string().nullish(),
+      plexUsername: z.string().nullish(),
+    }),
+  ),
 });
 
 const getStatsSchema = z.object({
