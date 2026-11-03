@@ -11,6 +11,7 @@ import { createTRPCRouter, protectedProcedure, publicProcedure } from "../../trp
 import { throwIfActionForbiddenAsync } from "../board/board-access";
 import { validateTimetableOptionsChangeAsync } from "./timetable";
 import { throwIfCustomWidgetPlacementChangeForbidden } from "../board/custom-widget-placement-access";
+import { throwIfEveryoneScopeForbiddenAsync } from "../../viewer-scope/everyone-scope-access";
 
 export const optionsRouter = createTRPCRouter({
   getWidgetOptionSettings: publicProcedure.query(async ({ ctx }): Promise<WidgetOptionsSettings> => {
@@ -38,6 +39,7 @@ export const optionsRouter = createTRPCRouter({
 
       const item = await ctx.db.query.items.findFirst({
         where: eq(items.id, input.itemId),
+        with: { integrations: { columns: { integrationId: true } } },
       });
 
       if (item?.boardId !== input.boardId) {
@@ -57,6 +59,12 @@ export const optionsRouter = createTRPCRouter({
         submittedItems: [{ id: item.id, kind: item.kind, options: updatedOptions }],
         storedItems: [{ id: item.id, kind: item.kind, options: previousOptions }],
       });
+      const integrationIds = item.integrations.map(({ integrationId }) => integrationId);
+      await throwIfEveryoneScopeForbiddenAsync(
+        ctx,
+        [{ id: item.id, kind: item.kind, options: updatedOptions, integrationIds }],
+        [{ id: item.id, kind: item.kind, options: previousOptions, integrationIds }],
+      );
       await ctx.db
         .update(items)
         .set({ options: SuperJSON.stringify(updatedOptions) })
