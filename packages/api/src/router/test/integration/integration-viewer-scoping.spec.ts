@@ -121,6 +121,19 @@ describe("viewer scoping", () => {
     expect((await db.query.integrations.findFirst())?.viewerScoping).toBe("off");
   });
 
+  test("update without viewerScoping keeps the stored value", async () => {
+    const { db, caller } = setup();
+    await db
+      .insert(integrations)
+      .values({ id: "1", name: "Jellyfin", kind: "jellyfin", url: "http://jellyfin.local", viewerScoping: "username" });
+
+    await caller.update({ id: "1", name: "Renamed", url: "http://jellyfin.local", secrets: [], appId: null });
+
+    const row = await db.query.integrations.findFirst();
+    expect(row?.name).toBe("Renamed");
+    expect(row?.viewerScoping).toBe("username");
+  });
+
   test("existing rows default to off", async () => {
     const { db } = setup();
     await db.insert(integrations).values({

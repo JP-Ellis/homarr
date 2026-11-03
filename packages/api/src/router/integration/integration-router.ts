@@ -346,7 +346,7 @@ export const integrationRouter = createTRPCRouter({
       });
     }
 
-    throwIfViewerScopingUnsupported(integration.kind, input.viewerScoping);
+    if (input.viewerScoping !== undefined) throwIfViewerScopingUnsupported(integration.kind, input.viewerScoping);
 
     const testResult = await testConnectionAsync(
       {
@@ -379,7 +379,7 @@ export const integrationRouter = createTRPCRouter({
         name: input.name,
         url: input.url,
         appId: input.appId,
-        viewerScoping: input.viewerScoping,
+        ...(input.viewerScoping !== undefined && { viewerScoping: input.viewerScoping }),
       })
       .where(eq(integrations.id, input.id));
 

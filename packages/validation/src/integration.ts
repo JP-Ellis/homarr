@@ -46,7 +46,7 @@ export const integrationUpdateSchema = z.object({
     }),
   ),
   appId: z.string().nullable(),
-  viewerScoping: zodEnumFromArray(viewerScopingModes).default("off"),
+  viewerScoping: zodEnumFromArray(viewerScopingModes).optional(),
 });
 
 export const integrationSavePermissionsSchema = createSavePermissionsSchema(zodEnumFromArray(integrationPermissions));
