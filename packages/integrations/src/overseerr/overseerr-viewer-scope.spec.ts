@@ -59,6 +59,44 @@ describe("Overseerr viewer scoping", () => {
     expect(String(mockFetch.mock.calls[1]?.[0])).toContain("skip=100");
   });
 
+  test("overseerr returns an empty roster after one empty page", async () => {
+    mockFetch.mockResolvedValue(jsonResponse({ pageInfo: { page: 1, pages: 5 }, results: [] }));
+
+    const users = await integration.listViewerScopeUsersAsync();
+
+    expect(users).toEqual([]);
+    expect(mockFetch).toHaveBeenCalledOnce();
+  });
+
+  test("overseerr stops at a short page even when more pages are reported", async () => {
+    const shortPage = [{ id: 1, displayName: "Josh", email: null, username: "josh" }];
+    mockFetch.mockResolvedValue(jsonResponse({ pageInfo: { page: 1, pages: 5 }, results: shortPage }));
+
+    const users = await integration.listViewerScopeUsersAsync();
+
+    expect(users).toHaveLength(1);
+    expect(mockFetch).toHaveBeenCalledOnce();
+  });
+
+  test("overseerr stops after 100 pages when the server misreports the page count", async () => {
+    let requestCount = 0;
+    mockFetch.mockImplementation(() => {
+      requestCount += 1;
+      const fullPage = Array.from({ length: 100 }, (_, index) => ({
+        id: requestCount * 100 + index,
+        displayName: `User ${index}`,
+        email: null,
+        username: `user${requestCount}-${index}`,
+      }));
+      return Promise.resolve(jsonResponse({ pageInfo: { page: 1, pages: 1_000_000 }, results: fullPage }));
+    });
+
+    const users = await integration.listViewerScopeUsersAsync();
+
+    expect(mockFetch).toHaveBeenCalledTimes(100);
+    expect(users).toHaveLength(10_000);
+  });
+
   test("overseerr requestedBy fetches only that user's requests", async () => {
     mockFetch.mockImplementation(() => Promise.resolve(jsonResponse({ results: [] })));
 

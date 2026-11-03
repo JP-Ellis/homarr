@@ -132,10 +132,11 @@ export class OverseerrIntegration
 
   public async listViewerScopeUsersAsync(): Promise<ViewerScopeUser[]> {
     const pageSize = 100;
+    const maxPages = 100;
     const users: ViewerScopeUser[] = [];
-    let skip = 0;
 
-    for (;;) {
+    for (let pageIndex = 0; pageIndex < maxPages; pageIndex++) {
+      const skip = pageIndex * pageSize;
       const response = await fetchWithTrustedCertificatesAsync(this.url("/api/v1/user", { take: pageSize, skip }), {
         headers: { "X-Api-Key": this.getSecretValue("apiKey") },
       });
@@ -153,9 +154,11 @@ export class OverseerrIntegration
         });
       }
 
-      if (page.pageInfo.page >= page.pageInfo.pages) return users;
-      skip += pageSize;
+      // A short or empty page also ends the roster, so a server that misreports `pages` cannot loop forever.
+      if (page.results.length < pageSize || page.pageInfo.page >= page.pageInfo.pages) return users;
     }
+
+    return users;
   }
 
   public async getRequestsAsync(options?: { requestedBy?: number }): Promise<MediaRequest[]> {
