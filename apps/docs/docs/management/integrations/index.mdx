@@ -88,8 +88,16 @@ Homarr matches viewers automatically only for users who sign in through OIDC or 
 automatic match misses or gets wrong, are linked on the integration's edit page. The account links table there shows
 each Homarr user's automatic match and lets you pin an override to a specific service user or clear it.
 
-A widget panel's saved scope decides what board viewers see. Queries without a viewer scope, such as the editor
-preview, the API and MCP, return the data of everyone and require interact access to the integration.
+Automatic username matching trusts the name your identity provider sends. For OIDC, Homarr takes the
+`preferred_username` claim, or the display name (`name` claim) when `preferred_username` contains "@", and updates it at
+each login. `AUTH_OIDC_NAME_ATTRIBUTE_OVERWRITE` replaces both with the attribute it names. Email matching trusts the
+provider's email claim. If your realm uses email addresses as usernames, or lets users edit their own display name, pin
+overrides for each user.
+
+A widget panel's saved scope decides what board viewers see. Saving a panel that shows everyone's data requires interact
+access to the integration. Queries without a saved panel, such as the editor preview, the API and MCP, follow the
+requested scope: "only the viewer" returns the caller's own data, and "everyone" requires interact access to the
+integration.
 
 ## Connection problems
 
