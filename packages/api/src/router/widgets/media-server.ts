@@ -36,6 +36,7 @@ export const mediaServerRouter = createTRPCRouter({
             requestedScope: input.scope,
           });
           if ("forbidden" in decision) throw new Error("Viewer scope is not allowed for this integration");
+          const scopeIgnored = input.scope === "mine" && integration.viewerScoping === "off";
 
           const { data } = await mediaServerRequestHandler
             .handler(integration, { showOnlyPlaying: input.showOnlyPlaying })
@@ -50,6 +51,7 @@ export const mediaServerRouter = createTRPCRouter({
               integrationKind: integration.kind,
               sessions: isMatched ? data.filter((session) => session.user?.userId === resolution.externalUserId) : [],
               viewerUnlinked: !isMatched,
+              scopeIgnored,
               error: undefined,
             };
           }
@@ -60,6 +62,7 @@ export const mediaServerRouter = createTRPCRouter({
             integrationKind: integration.kind,
             sessions: data,
             viewerUnlinked: false,
+            scopeIgnored,
             error: undefined,
           };
         },
@@ -70,6 +73,7 @@ export const mediaServerRouter = createTRPCRouter({
             integrationKind: integration.kind,
             sessions: [],
             viewerUnlinked: false,
+            scopeIgnored: false,
             error: PUBLIC_INTEGRATION_ERROR,
           }),
           throwOnAllFailures: true,

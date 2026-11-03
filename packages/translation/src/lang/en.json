@@ -3973,6 +3973,7 @@
         }
       },
       "viewerUnlinked": "No linked account",
+      "scopeIgnored": "Viewer scoping is off for this integration, so everyone's data is shown.",
       "footer": {
         "streams": "{count, plural, one {# active stream} other {# active streams}}",
         "totalBitrate": "Total: {bitrate}"
@@ -4647,6 +4648,7 @@
         }
       },
       "viewerUnlinked": "No linked account",
+      "scopeIgnored": "Viewer scoping is off for this integration, so everyone's data is shown.",
       "pending": {
         "approve": "Approve request",
         "approving": "Approving request...",

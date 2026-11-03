@@ -246,6 +246,7 @@ export default function MediaServerWidget({
   const totalBitrateLabel = showBitrate ? formatBitrate(totalBitrateKbps) : null;
   const hasFailedIntegrations = currentStreams.some(({ error }) => Boolean(error));
   const isViewerUnlinked = currentStreams.length > 0 && currentStreams.every(({ viewerUnlinked }) => viewerUnlinked);
+  const isScopeIgnored = isEditMode && currentStreams.some(({ scopeIgnored }) => scopeIgnored);
 
   return (
     <Stack className={classes.root} gap={0} h="100%" display="flex">
@@ -279,6 +280,11 @@ export default function MediaServerWidget({
       {isViewerUnlinked && (
         <Text size="xs" c="dimmed" px="xs" py={4}>
           {t("viewerUnlinked")}
+        </Text>
+      )}
+      {isScopeIgnored && (
+        <Text size="xs" c="dimmed" px="xs" py={4}>
+          {t("scopeIgnored")}
         </Text>
       )}
       <ScrollArea

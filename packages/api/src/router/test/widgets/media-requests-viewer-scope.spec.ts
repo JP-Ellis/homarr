@@ -17,6 +17,7 @@ vi.hoisted(() => {
 
 const handlerInputs = vi.hoisted(() => [] as unknown[]);
 const resolveViewerMock = vi.hoisted(() => vi.fn());
+const failingIntegrationIds = vi.hoisted(() => new Set<string>());
 
 const requestOf = (id: number, requesterId: number | undefined) => ({
   id,
@@ -29,10 +30,13 @@ const requestOf = (id: number, requesterId: number | undefined) => ({
 vi.mock("@homarr/request-handler/media-request-list", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@homarr/request-handler/media-request-list")>()),
   mediaRequestListRequestHandler: {
-    handler: (_integration: unknown, input: unknown) => {
+    handler: (integration: { id: string }, input: unknown) => {
       handlerInputs.push(input);
       return {
-        getDataAsync: () => Promise.resolve({ data: [requestOf(1, 7), requestOf(2, 8), requestOf(3, undefined)] }),
+        getDataAsync: () =>
+          failingIntegrationIds.has(integration.id)
+            ? Promise.reject(new Error("Service unavailable"))
+            : Promise.resolve({ data: [requestOf(1, 7), requestOf(2, 8), requestOf(3, undefined)] }),
       };
     },
   },
@@ -93,6 +97,7 @@ const listInput = (integrationId: string, scope?: "mine" | "everyone") => ({
 describe("mediaRequests viewer scope", () => {
   beforeEach(() => {
     handlerInputs.length = 0;
+    failingIntegrationIds.clear();
     resolveViewerMock.mockReset();
   });
 
@@ -139,6 +144,39 @@ describe("mediaRequests viewer scope", () => {
     expect(result.requests).toHaveLength(3);
     expect(result.viewerUnlinked).toBe(false);
     expect(resolveViewerMock).not.toHaveBeenCalled();
+  });
+
+  test("mine on an integration with scoping off reports scopeIgnored", async () => {
+    const { caller, integrationId } = await setupAsync("off");
+
+    const result = await caller.getLatestRequests(listInput(integrationId, "mine"));
+
+    expect(result.scopeIgnored).toBe(true);
+  });
+
+  test("everyone on an unscoped integration and mine on a scoped one do not report scopeIgnored", async () => {
+    const { caller, integrationId, unscopedIntegrationId } = await setupAsync();
+    resolveViewerMock.mockResolvedValue({ status: "matched", externalUserId: "7" });
+
+    const everyoneResult = await caller.getLatestRequests(listInput(unscopedIntegrationId, "everyone"));
+    const mineResult = await caller.getLatestRequests(listInput(integrationId, "mine"));
+
+    expect(everyoneResult.scopeIgnored).toBe(false);
+    expect(mineResult.scopeIgnored).toBe(false);
+  });
+
+  test("a failed unscoped integration does not report scopeIgnored", async () => {
+    const { caller, integrationId, unscopedIntegrationId } = await setupAsync();
+    resolveViewerMock.mockResolvedValue({ status: "matched", externalUserId: "7" });
+    failingIntegrationIds.add(unscopedIntegrationId);
+
+    const result = await caller.getLatestRequests({
+      ...listInput(integrationId, "mine"),
+      integrationIds: [integrationId, unscopedIntegrationId],
+    });
+
+    expect(result.failedIntegrations).toEqual([expect.objectContaining({ integrationId: unscopedIntegrationId })]);
+    expect(result.scopeIgnored).toBe(false);
   });
 
   test("getStats via saved item is allowed for a board viewer", async () => {

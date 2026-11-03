@@ -17,15 +17,19 @@ vi.hoisted(() => {
 
 const handlerInputs = vi.hoisted(() => [] as unknown[]);
 const resolveViewerMock = vi.hoisted(() => vi.fn());
+const failingIntegrationIds = vi.hoisted(() => new Set<string>());
 
 const sessionsOf = (userId: string) => ({ sessionId: `session-${userId}`, user: { userId, username: userId } });
 
 vi.mock("@homarr/request-handler/media-server", () => ({
   mediaServerRequestHandler: {
-    handler: (_integration: unknown, input: unknown) => {
+    handler: (integration: { id: string }, input: unknown) => {
       handlerInputs.push(input);
       return {
-        getDataAsync: () => Promise.resolve({ data: [sessionsOf("u1"), sessionsOf("u2"), { sessionId: "anonymous" }] }),
+        getDataAsync: () =>
+          failingIntegrationIds.has(integration.id)
+            ? Promise.reject(new Error("Service unavailable"))
+            : Promise.resolve({ data: [sessionsOf("u1"), sessionsOf("u2"), { sessionId: "anonymous" }] }),
       };
     },
   },
@@ -84,6 +88,7 @@ const userIdsOf = (row: { sessions: { user?: { userId: string } }[] }) => row.se
 describe("mediaServer.getCurrentStreams viewer scope", () => {
   beforeEach(() => {
     handlerInputs.length = 0;
+    failingIntegrationIds.clear();
     resolveViewerMock.mockReset();
   });
 
@@ -145,6 +150,34 @@ describe("mediaServer.getCurrentStreams viewer scope", () => {
     expect(userIdsOf(scopedRow)).toEqual(["u1"]);
     expect(unscopedRow.sessions).toHaveLength(3);
     expect(resolveViewerMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("scopeIgnored marks only mine on an integration with scoping off", async () => {
+    const { caller, integrationIds } = await setupAsync(["username", "off"]);
+    resolveViewerMock.mockResolvedValue({ status: "matched", externalUserId: "u1" });
+
+    const mineRows = await caller.getCurrentStreams({ integrationIds, showOnlyPlaying: true, scope: "mine" });
+    const everyoneRows = await caller.getCurrentStreams({
+      integrationIds: integrationIds.slice(1),
+      showOnlyPlaying: true,
+      scope: "everyone",
+    });
+
+    expect(findRow(mineRows, integrationIds[0]).scopeIgnored).toBe(false);
+    expect(findRow(mineRows, integrationIds[1]).scopeIgnored).toBe(true);
+    expect(findRow(everyoneRows, integrationIds[1]).scopeIgnored).toBe(false);
+  });
+
+  test("a failed unscoped integration does not report scopeIgnored", async () => {
+    const { caller, integrationIds } = await setupAsync(["username", "off"]);
+    resolveViewerMock.mockResolvedValue({ status: "matched", externalUserId: "u1" });
+    failingIntegrationIds.add(integrationIds[1] ?? "");
+
+    const rows = await caller.getCurrentStreams({ integrationIds, showOnlyPlaying: true, scope: "mine" });
+    const failedRow = findRow(rows, integrationIds[1]);
+
+    expect(failedRow.error).toBe("INTEGRATION_REQUEST_FAILED");
+    expect(failedRow.scopeIgnored).toBe(false);
   });
 
   test("preview everyone without interact marks integration failed", async () => {

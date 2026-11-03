@@ -23,6 +23,7 @@ interface IntegrationQueryResult<TData> {
   integration: { id: string; name: string; kind: IntegrationKindByCategory<"mediaRequest"> };
   data: TData;
   viewerUnlinked?: boolean;
+  scopeIgnored?: boolean;
   error?: string;
 }
 
@@ -53,6 +54,7 @@ export const mediaRequestsRouter = createTRPCRouter({
             requestedScope: input.scope,
           });
           if ("forbidden" in decision) throw new Error("Viewer scope is not allowed for this integration");
+          const scopeIgnored = input.scope === "mine" && integration.viewerScoping === "off";
 
           const handlerInput = {
             integrationIds: input.integrationIds,
@@ -64,7 +66,13 @@ export const mediaRequestsRouter = createTRPCRouter({
           if (decision.scope === "mine") {
             const resolution = await resolveViewerAsync(ctx.db, integration, ctx.session);
             if (resolution.status !== "matched") {
-              return { integration: integrationSummary, data: [], viewerUnlinked: true, error: undefined };
+              return {
+                integration: integrationSummary,
+                data: [],
+                viewerUnlinked: true,
+                scopeIgnored,
+                error: undefined,
+              };
             }
             const requestedBy = Number(resolution.externalUserId);
             const { data } = await mediaRequestListRequestHandler
@@ -74,18 +82,20 @@ export const mediaRequestsRouter = createTRPCRouter({
               integration: integrationSummary,
               data: data.filter((request) => request.requestedBy?.id === requestedBy),
               viewerUnlinked: false,
+              scopeIgnored,
               error: undefined,
             };
           }
 
           const { data } = await mediaRequestListRequestHandler.handler(integration, handlerInput).getDataAsync();
-          return { integration: integrationSummary, data, viewerUnlinked: false, error: undefined };
+          return { integration: integrationSummary, data, viewerUnlinked: false, scopeIgnored, error: undefined };
         },
         {
           fallback: (integration) => ({
             integration: { id: integration.id, name: integration.name, kind: integration.kind },
             data: [],
             viewerUnlinked: false,
+            scopeIgnored: false,
             error: PUBLIC_INTEGRATION_ERROR,
           }),
           throwOnAllFailures: true,
@@ -112,6 +122,7 @@ export const mediaRequestsRouter = createTRPCRouter({
       return {
         requests,
         viewerUnlinked: results.length > 0 && results.every(({ viewerUnlinked }) => viewerUnlinked),
+        scopeIgnored: results.some(({ scopeIgnored }) => scopeIgnored === true),
         failedIntegrations: results.flatMap(({ integration, error }) =>
           error ? [{ integrationId: integration.id, integrationName: integration.name, error }] : [],
         ),

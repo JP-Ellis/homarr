@@ -81,6 +81,11 @@ export default function MediaServerWidget({
           <IntegrationErrorIndicator results={failedIntegrations} />
         </Group>
       )}
+      {isEditMode && mediaRequestData.scopeIgnored && (
+        <Text size="xs" c="dimmed" px="sm" pt="xs">
+          {t("scopeIgnored")}
+        </Text>
+      )}
       <ScrollArea
         className="mediaRequests-list-scrollArea"
         style={{ flex: 1, minHeight: 0, pointerEvents: isEditMode ? "none" : undefined }}
